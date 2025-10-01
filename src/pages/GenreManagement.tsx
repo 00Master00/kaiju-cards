@@ -1,6 +1,7 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useAnime } from "@/contexts/AnimeContext";
-import AnimeDetail from "@/components/AnimeDetail";
+import { useGenres } from "@/hooks/useGenres";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,117 +13,63 @@ import {
   Tag,
   Search,
   Eye,
-  Tv,
-  Star,
-  Calendar
+  Loader2
 } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
-
-const initialGenres = [
-  { id: 1, name: "Action", count: 45 },
-  { id: 2, name: "Adventure", count: 32 },
-  { id: 3, name: "Comedy", count: 28 },
-  { id: 4, name: "Drama", count: 67 },
-  { id: 5, name: "Fantasy", count: 38 },
-  { id: 6, name: "Horror", count: 12 },
-  { id: 7, name: "Mystery", count: 15 },
-  { id: 8, name: "Romance", count: 42 },
-  { id: 9, name: "Sci-Fi", count: 23 },
-  { id: 10, name: "Supernatural", count: 19 },
-];
 
 export default function GenreManagement() {
+  const navigate = useNavigate();
   const { animeList } = useAnime();
+  const { genres, loading, addGenre, deleteGenre } = useGenres();
   const [newGenre, setNewGenre] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedGenre, setSelectedGenre] = useState<string | null>(null);
-  const [selectedAnime, setSelectedAnime] = useState<any>(null);
-  const { toast } = useToast();
 
-  // Calculate actual genre counts from anime data
-  const getAllGenres = () => {
-    const genreCounts: { [key: string]: number } = {};
-    animeList.forEach(anime => {
-      anime.genre.forEach(genre => {
-        genreCounts[genre] = (genreCounts[genre] || 0) + 1;
-      });
-    });
-    
-    const allGenres = Array.from(new Set([
-      ...initialGenres.map(g => g.name),
-      ...Object.keys(genreCounts)
-    ]));
-    
-    return allGenres.map((genreName, index) => ({
-      id: index + 1,
-      name: genreName,
-      count: genreCounts[genreName] || 0
-    }));
+  // Calculate genre counts from anime data
+  const getGenreCount = (genreName: string) => {
+    return animeList.filter(anime => anime.genre?.includes(genreName)).length;
   };
 
-  const [genres, setGenres] = useState(getAllGenres());
+  const genresWithCount = genres.map(genre => ({
+    ...genre,
+    count: getGenreCount(genre.name)
+  }));
 
-  const filteredGenres = genres.filter(genre =>
+  const filteredGenres = genresWithCount.filter(genre =>
     genre.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const handleAddGenre = (e: React.FormEvent) => {
+  const handleAddGenre = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!newGenre.trim()) {
-      toast({
-        title: "ข้อผิดพลาด",
-        description: "กรุณากรอกชื่อ Genre",
-        variant: "destructive"
-      });
-      return;
+    if (!newGenre.trim()) return;
+
+    const result = await addGenre(newGenre);
+    if (result) {
+      setNewGenre("");
     }
-
-    if (genres.some(genre => genre.name.toLowerCase() === newGenre.trim().toLowerCase())) {
-      toast({
-        title: "ข้อผิดพลาด",
-        description: "Genre นี้มีอยู่ในระบบแล้ว",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    const newId = Math.max(...genres.map(g => g.id)) + 1;
-    setGenres(prev => [...prev, {
-      id: newId,
-      name: newGenre.trim(),
-      count: 0
-    }]);
-
-    setNewGenre("");
-    toast({
-      title: "สำเร็จ!",
-      description: `เพิ่ม Genre "${newGenre.trim()}" เรียบร้อยแล้ว`,
-    });
   };
 
-  const handleDeleteGenre = (id: number, name: string, count: number) => {
+  const handleDeleteGenre = async (id: string, name: string, count: number) => {
     if (count > 0) {
-      toast({
-        title: "ไม่สามารถลบได้",
-        description: `Genre "${name}" ถูกใช้งานอยู่ใน ${count} Anime`,
-        variant: "destructive"
-      });
       return;
     }
 
     if (confirm(`คุณแน่ใจหรือไม่ที่จะลบ Genre "${name}"?`)) {
-      setGenres(prev => prev.filter(genre => genre.id !== id));
-      toast({
-        title: "สำเร็จ!",
-        description: `ลบ Genre "${name}" เรียบร้อยแล้ว`,
-      });
+      await deleteGenre(id, name);
     }
   };
 
-  const genreAnime = selectedGenre 
-    ? animeList.filter(anime => anime.genre.includes(selectedGenre))
-    : [];
+  const getAnimeByGenre = (genreName: string) => {
+    return animeList.filter(anime => anime.genre?.includes(genreName));
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8">
@@ -263,7 +210,7 @@ export default function GenreManagement() {
         <Card className="bg-gradient-card border-border shadow-card">
           <CardContent className="p-6 text-center">
             <div className="text-2xl font-bold text-primary mb-1">
-              {genres.length}
+              {genresWithCount.length}
             </div>
             <div className="text-sm text-muted-foreground">
               จำนวน Genres ทั้งหมด
@@ -274,7 +221,7 @@ export default function GenreManagement() {
         <Card className="bg-gradient-card border-border shadow-card">
           <CardContent className="p-6 text-center">
             <div className="text-2xl font-bold text-success mb-1">
-              {genres.filter(g => g.count > 0).length}
+              {genresWithCount.filter(g => g.count > 0).length}
             </div>
             <div className="text-sm text-muted-foreground">
               Genres ที่ใช้งาน
@@ -285,7 +232,7 @@ export default function GenreManagement() {
         <Card className="bg-gradient-card border-border shadow-card">
           <CardContent className="p-6 text-center">
             <div className="text-2xl font-bold text-warning mb-1">
-              {genres.filter(g => g.count === 0).length}
+              {genresWithCount.filter(g => g.count === 0).length}
             </div>
             <div className="text-sm text-muted-foreground">
               Genres ที่ไม่ใช้งาน
@@ -294,76 +241,59 @@ export default function GenreManagement() {
         </Card>
       </div>
 
-      {/* Genre Anime List Dialog */}
+      {/* Dialog for showing anime by genre */}
       <Dialog open={!!selectedGenre} onOpenChange={() => setSelectedGenre(null)}>
-        <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
-              Anime ประเภท "{selectedGenre}" ({genreAnime.length} รายการ)
+              Anime ใน Genre: {selectedGenre}
             </DialogTitle>
           </DialogHeader>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mt-4">
-            {genreAnime.map((anime) => (
-              <Card 
-                key={anime.id} 
-                className="cursor-pointer hover:shadow-lg transition-shadow"
-                onClick={() => {
-                  setSelectedAnime({
-                    id: anime.id.toString(),
-                    title: anime.title,
-                    image_url: anime.image,
-                    genres: anime.genre,
-                    publisher: anime.studio,
-                    first_aired: anime.year.toString(),
-                    format: anime.status,
-                    description: anime.description,
-                    popularity_score: anime.rating * 10
-                  });
-                  setSelectedGenre(null);
-                }}
-              >
-                <CardContent className="p-0">
-                  <div className="aspect-[3/4] bg-muted rounded-t-lg overflow-hidden">
-                    {anime.image && anime.image !== "/placeholder.svg" ? (
-                      <img 
-                        src={anime.image} 
+          <div className="space-y-4">
+            {selectedGenre && getAnimeByGenre(selectedGenre).length > 0 ? (
+              <div className="grid gap-4">
+                {getAnimeByGenre(selectedGenre).map((anime) => (
+                  <div
+                    key={anime.id}
+                    className="flex items-center space-x-4 p-4 bg-muted/30 rounded-lg hover:bg-muted/50 transition-colors cursor-pointer"
+                    onClick={() => {
+                      setSelectedGenre(null);
+                      navigate(`/admin/anime/${anime.id}`);
+                    }}
+                  >
+                    {anime.image && (
+                      <img
+                        src={anime.image}
                         alt={anime.title}
-                        className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
+                        className="w-16 h-20 object-cover rounded"
                       />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center">
-                        <Tv className="w-12 h-12 text-muted-foreground" />
-                      </div>
                     )}
-                  </div>
-                  <div className="p-3 space-y-2">
-                    <h4 className="font-medium text-sm line-clamp-2">{anime.title}</h4>
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                      <div className="flex items-center">
-                        <Star className="w-3 h-3 mr-1 text-warning" />
-                        {anime.rating || 0}
-                      </div>
-                      <div className="flex items-center">
-                        <Calendar className="w-3 h-3 mr-1" />
-                        {anime.year}
+                    <div className="flex-1">
+                      <h3 className="font-medium text-foreground">
+                        {anime.title}
+                      </h3>
+                      <p className="text-sm text-muted-foreground line-clamp-2">
+                        {anime.description}
+                      </p>
+                      <div className="flex flex-wrap gap-1 mt-2">
+                        {anime.genre?.map((g) => (
+                          <Badge key={g} variant="secondary" className="text-xs">
+                            {g}
+                          </Badge>
+                        ))}
                       </div>
                     </div>
                   </div>
-                </CardContent>
-              </Card>
-            ))}
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8">
+                <p className="text-muted-foreground">ไม่มี Anime ใน Genre นี้</p>
+              </div>
+            )}
           </div>
         </DialogContent>
       </Dialog>
-
-      {/* Anime Detail Modal */}
-      {selectedAnime && (
-        <AnimeDetail 
-          anime={selectedAnime}
-          isOpen={!!selectedAnime}
-          onClose={() => setSelectedAnime(null)}
-        />
-      )}
     </div>
   );
 }

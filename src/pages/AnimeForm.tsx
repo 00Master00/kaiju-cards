@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useAnimeData, type AnimeFormData } from "@/hooks/useAnimeData";
+import { useGenres } from "@/hooks/useGenres";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -30,11 +31,6 @@ interface FormData {
 }
 
 const formatOptions = ["TV Series", "Movie", "OVA", "Special"];
-const availableGenres = [
-  "Action", "Adventure", "Comedy", "Drama", "Fantasy", "Horror",
-  "Mystery", "Romance", "Sci-Fi", "Supernatural", "Thriller", "Historical",
-  "Sports", "Music", "School", "Military", "Mecha"
-];
 
 export default function AnimeForm() {
   const navigate = useNavigate();
@@ -42,6 +38,7 @@ export default function AnimeForm() {
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { getAnimeById, createAnime, updateAnime, createAnimeUpdate, loading } = useAnimeData();
+  const { genres: dbGenres, addGenre } = useGenres();
   const isEditing = !!id;
 
   const [formData, setFormData] = useState<FormData>({
@@ -89,13 +86,22 @@ export default function AnimeForm() {
     }));
   };
 
-  const handleGenreAdd = (genre: string) => {
-    if (genre && !formData.genres.includes(genre)) {
-      setFormData(prev => ({
-        ...prev,
-        genres: [...prev.genres, genre]
-      }));
+  const handleGenreAdd = async (genre: string) => {
+    if (!genre || formData.genres.includes(genre)) {
+      setNewGenre("");
+      return;
     }
+
+    // ถ้า genre ยังไม่มีใน database ให้เพิ่ม
+    const genreExists = dbGenres.some(g => g.name.toLowerCase() === genre.toLowerCase());
+    if (!genreExists) {
+      await addGenre(genre);
+    }
+
+    setFormData(prev => ({
+      ...prev,
+      genres: [...prev.genres, genre]
+    }));
     setNewGenre("");
   };
 
@@ -325,19 +331,19 @@ export default function AnimeForm() {
 
                 {/* Add Genre */}
                 <div className="flex flex-wrap gap-2">
-                  {availableGenres
-                    .filter(genre => !formData.genres.includes(genre))
+                  {dbGenres
+                    .filter(genre => !formData.genres.includes(genre.name))
                     .map((genre) => (
                       <Button
-                        key={genre}
+                        key={genre.id}
                         type="button"
                         variant="outline"
                         size="sm"
-                        onClick={() => handleGenreAdd(genre)}
+                        onClick={() => handleGenreAdd(genre.name)}
                         className="text-xs"
                       >
                         <Plus className="w-3 h-3 mr-1" />
-                        {genre}
+                        {genre.name}
                       </Button>
                     ))}
                 </div>
