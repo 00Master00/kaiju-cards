@@ -144,7 +144,7 @@ export default function Login() {
           </form>
 
           <div className="text-center text-sm text-muted-foreground">
-            <p>ระบบ Demo - ไม่มีการเก็บข้อมูลจริง</p>
+            <p>ระบบ Demo</p>
           </div>
         </CardContent>
       </Card>

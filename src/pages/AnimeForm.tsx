@@ -55,26 +55,27 @@ export default function AnimeForm() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Load existing anime data for editing
-  useEffect(() => {
-    if (isEditing && id && !loading) {
-      const anime = getAnimeById(id);
-      if (anime) {
-        setFormData({
-          title: anime.title,
-          description: anime.description || "",
-          publisher: anime.publisher || "",
-          first_aired: anime.first_aired || "",
-          format: anime.format || "TV Series",  
-          genres: anime.genres || [],
-          image_url: anime.image_url || "",
-          popularity_score: anime.popularity_score || 0
-        });
-        if (anime.image_url) {
-          setImagePreview(anime.image_url);
-        }
-      }
+ const [isLoaded, setIsLoaded] = useState(false);
+
+useEffect(() => {
+  if (isEditing && id && !loading && !isLoaded) {
+    const anime = getAnimeById(id);
+    if (anime) {
+      setFormData({
+        title: anime.title,
+        description: anime.description || "",
+        publisher: anime.publisher || "",
+        first_aired: anime.first_aired || "",
+        format: anime.format || "TV Series",
+        genres: anime.genres || [],
+        image_url: anime.image_url || "",
+        popularity_score: anime.popularity_score || 0
+      });
+      setImagePreview(anime.image_url || "");
+      setIsLoaded(true); // ทำให้โหลดครั้งเดียว
     }
-  }, [id, isEditing, getAnimeById, loading]);
+  }
+}, [id, isEditing, getAnimeById, loading, isLoaded]);
 
   const [newGenre, setNewGenre] = useState("");
   const [imagePreview, setImagePreview] = useState<string>("");

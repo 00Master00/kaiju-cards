@@ -21,10 +21,11 @@ export default defineConfig({
         manualChunks: {
           // แยก React ออกไปเป็นไฟล์แยก
           react: ["react", "react-dom"],
+          // แยก library อื่นๆ ได้ถ้ามี
           vendor: ["react-router-dom"],
         },
       },
     },
-    chunkSizeWarningLimit: 1000, // ปรับ limit ไม่ให้ warning ง่ายๆ
+    chunkSizeWarningLimit: 1000, // ปรับ limit ไม่ให้ warning ง่ายๆ (ค่า default คือ 500kb)
   },
 });

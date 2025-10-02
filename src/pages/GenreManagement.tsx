@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useAnime } from "@/contexts/AnimeContext";
+import { useAnimeData } from "@/hooks/useAnimeData";
 import { useGenres } from "@/hooks/useGenres";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -18,7 +18,7 @@ import {
 
 export default function GenreManagement() {
   const navigate = useNavigate();
-  const { animeList } = useAnime();
+  const { animeList } = useAnimeData();
   const { genres, loading, addGenre, deleteGenre } = useGenres();
   const [newGenre, setNewGenre] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
@@ -26,7 +26,7 @@ export default function GenreManagement() {
 
   // Calculate genre counts from anime data
   const getGenreCount = (genreName: string) => {
-    return animeList.filter(anime => anime.genre?.includes(genreName)).length;
+    return animeList.filter(anime => anime.genres?.includes(genreName)).length;
   };
 
   const genresWithCount = genres.map(genre => ({
@@ -60,7 +60,7 @@ export default function GenreManagement() {
   };
 
   const getAnimeByGenre = (genreName: string) => {
-    return animeList.filter(anime => anime.genre?.includes(genreName));
+    return animeList.filter(anime => anime.genres?.includes(genreName));
   };
 
   if (loading) {
@@ -252,18 +252,14 @@ export default function GenreManagement() {
           <div className="space-y-4">
             {selectedGenre && getAnimeByGenre(selectedGenre).length > 0 ? (
               <div className="grid gap-4">
-                {getAnimeByGenre(selectedGenre).map((anime) => (
+                  {getAnimeByGenre(selectedGenre).map((anime) => (
                   <div
                     key={anime.id}
-                    className="flex items-center space-x-4 p-4 bg-muted/30 rounded-lg hover:bg-muted/50 transition-colors cursor-pointer"
-                    onClick={() => {
-                      setSelectedGenre(null);
-                      navigate(`/admin/anime/${anime.id}`);
-                    }}
+                    className="flex items-center space-x-4 p-4 bg-muted/30 rounded-lg"
                   >
-                    {anime.image && (
+                    {anime.image_url && (
                       <img
-                        src={anime.image}
+                        src={anime.image_url}
                         alt={anime.title}
                         className="w-16 h-20 object-cover rounded"
                       />
@@ -276,7 +272,7 @@ export default function GenreManagement() {
                         {anime.description}
                       </p>
                       <div className="flex flex-wrap gap-1 mt-2">
-                        {anime.genre?.map((g) => (
+                        {anime.genres?.map((g) => (
                           <Badge key={g} variant="secondary" className="text-xs">
                             {g}
                           </Badge>

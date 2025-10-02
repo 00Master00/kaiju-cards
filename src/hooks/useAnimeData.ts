@@ -25,7 +25,6 @@ export interface AnimeUpdate {
   anime?: Anime;
 }
 
-// Admin interface for creating/updating anime
 export interface AnimeFormData {
   title: string;
   image_url?: string | null;
@@ -50,39 +49,24 @@ export function useAnimeData() {
   }, []);
 
   const setupRealtimeSubscriptions = () => {
-    // Listen for changes to anime table
     const animeChannel = supabase
-      .channel('anime-changes')
+      .channel("anime-changes")
       .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'anime'
-        },
-        () => {
-          fetchAnimeData(); // Refetch data when changes occur
-        }
+        "postgres_changes",
+        { event: "*", schema: "public", table: "anime" },
+        () => fetchAnimeData()
       )
       .subscribe();
 
-    // Listen for changes to anime_updates table
     const updatesChannel = supabase
-      .channel('updates-changes')
+      .channel("updates-changes")
       .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'anime_updates'
-        },
-        () => {
-          fetchAnimeData(); // Refetch data when changes occur
-        }
+        "postgres_changes",
+        { event: "*", schema: "public", table: "anime_updates" },
+        () => fetchAnimeData()
       )
       .subscribe();
 
-    // Cleanup subscriptions
     return () => {
       supabase.removeChannel(animeChannel);
       supabase.removeChannel(updatesChannel);
@@ -94,17 +78,14 @@ export function useAnimeData() {
       setLoading(true);
       setError(null);
 
-      // Fetch all anime
       const { data: anime, error: animeError } = await supabase
-        .from('anime')
-        .select('*')
-        .order('popularity_score', { ascending: false });
-
+        .from("anime")
+        .select("*")
+        .order("popularity_score", { ascending: false });
       if (animeError) throw animeError;
 
-      // Fetch recent updates with anime data
       const { data: updates, error: updatesError } = await supabase
-        .from('anime_updates')
+        .from("anime_updates")
         .select(`
           *,
           anime:anime_id (
@@ -116,34 +97,57 @@ export function useAnimeData() {
             description
           )
         `)
-        .gte('update_date', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0])
-        .order('update_date', { ascending: false });
-
+        .gte(
+          "update_date",
+          new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
+            .toISOString()
+            .split("T")[0]
+        )
+        .order("update_date", { ascending: false });
       if (updatesError) throw updatesError;
 
       setAnimeList(anime || []);
       setRecentUpdates(updates || []);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'เกิดข้อผิดพลาด');
-      console.error('Error fetching anime data:', err);
+      setError(err instanceof Error ? err.message : "เกิดข้อผิดพลาด");
+      console.error("Error fetching anime data:", err);
     } finally {
       setLoading(false);
     }
   };
 
-  // Admin functions for managing anime data
+  // --- Admin functions ---
+
+ const updateGenresList = async (animeGenres: string[] = []) => {
+  try {
+    if (animeGenres.length === 0) return;
+    const genresToUpsert: { name: string; created_at?: string; id?: string; updated_at?: string }[] =
+      animeGenres.map((name) => ({ name }));
+    const { error } = await supabase
+      .from("genres")
+      .upsert(genresToUpsert, { onConflict: "name", ignoreDuplicates: true }); // <-- เปลี่ยนตรงนี้
+    if (error) throw error;
+  } catch (err) {
+    console.error("Error updating genres list:", err);
+  }
+};
+
   const createAnime = async (animeData: AnimeFormData) => {
     try {
       const { data, error } = await supabase
-        .from('anime')
+        .from("anime")
         .insert([animeData])
         .select()
         .single();
-      
       if (error) throw error;
+
+      if (animeData.genres) {
+        await updateGenresList(animeData.genres);
+      }
+
       return { data, error: null };
     } catch (error) {
-      console.error('Error creating anime:', error);
+      console.error("Error creating anime:", error);
       return { data: null, error };
     }
   };
@@ -151,31 +155,31 @@ export function useAnimeData() {
   const updateAnime = async (id: string, animeData: Partial<AnimeFormData>) => {
     try {
       const { data, error } = await supabase
-        .from('anime')
+        .from("anime")
         .update(animeData)
-        .eq('id', id)
+        .eq("id", id)
         .select()
         .single();
-      
       if (error) throw error;
+
+      if (animeData.genres) {
+        await updateGenresList(animeData.genres);
+      }
+
       return { data, error: null };
     } catch (error) {
-      console.error('Error updating anime:', error);
+      console.error("Error updating anime:", error);
       return { data: null, error };
     }
   };
 
   const deleteAnime = async (id: string) => {
     try {
-      const { error } = await supabase
-        .from('anime')
-        .delete()
-        .eq('id', id);
-      
+      const { error } = await supabase.from("anime").delete().eq("id", id);
       if (error) throw error;
       return { error: null };
     } catch (error) {
-      console.error('Error deleting anime:', error);
+      console.error("Error deleting anime:", error);
       return { error };
     }
   };
@@ -188,21 +192,20 @@ export function useAnimeData() {
   }) => {
     try {
       const { data, error } = await supabase
-        .from('anime_updates')
+        .from("anime_updates")
         .insert([updateData])
         .select()
         .single();
-      
       if (error) throw error;
       return { data, error: null };
     } catch (error) {
-      console.error('Error creating anime update:', error);
+      console.error("Error creating anime update:", error);
       return { data: null, error };
     }
   };
 
   const getAnimeById = (id: string) => {
-    return animeList.find(anime => anime.id === id);
+    return animeList.find((anime) => anime.id === id);
   };
 
   const getPopularAnime = (limit = 10) => {
@@ -212,51 +215,44 @@ export function useAnimeData() {
   };
 
   const getTodayUpdates = () => {
-    const today = new Date().toISOString().split('T')[0];
-    return recentUpdates.filter(update => update.update_date === today);
+    const today = new Date().toISOString().split("T")[0];
+    return recentUpdates.filter((update) => update.update_date === today);
   };
 
   const getUpdatesByDay = () => {
-    const days = ['Su', 'M', 'Tu', 'W', 'Th', 'F', 'Sa'];
+    const days = ["Su", "M", "Tu", "W", "Th", "F", "Sa"];
     const updatesByDay: { [key: string]: AnimeUpdate[] } = {};
-    
-    days.forEach(day => {
-      updatesByDay[day] = [];
-    });
-
-    recentUpdates.forEach(update => {
+    days.forEach((day) => (updatesByDay[day] = []));
+    recentUpdates.forEach((update) => {
       const date = new Date(update.update_date);
       const dayName = days[date.getDay()];
       updatesByDay[dayName].push(update);
     });
-
     return updatesByDay;
   };
 
   const searchAnime = (query: string, genres?: string[]) => {
     let filtered = animeList;
-
     if (query.trim()) {
-      filtered = filtered.filter(anime =>
-        anime.title.toLowerCase().includes(query.toLowerCase()) ||
-        anime.description?.toLowerCase().includes(query.toLowerCase()) ||
-        anime.publisher?.toLowerCase().includes(query.toLowerCase())
+      filtered = filtered.filter(
+        (anime) =>
+          anime.title.toLowerCase().includes(query.toLowerCase()) ||
+          anime.description?.toLowerCase().includes(query.toLowerCase()) ||
+          anime.publisher?.toLowerCase().includes(query.toLowerCase())
       );
     }
-
     if (genres && genres.length > 0) {
-      filtered = filtered.filter(anime =>
-        anime.genres?.some(genre => genres.includes(genre))
+      filtered = filtered.filter((anime) =>
+        anime.genres?.some((genre) => genres.includes(genre))
       );
     }
-
     return filtered;
   };
 
   const getAllGenres = () => {
     const genresSet = new Set<string>();
-    animeList.forEach(anime => {
-      anime.genres?.forEach(genre => genresSet.add(genre));
+    animeList.forEach((anime) => {
+      anime.genres?.forEach((genre) => genresSet.add(genre));
     });
     return Array.from(genresSet).sort();
   };
@@ -272,11 +268,10 @@ export function useAnimeData() {
     searchAnime,
     getAllGenres,
     getAnimeById,
-    // Admin functions
     createAnime,
     updateAnime,
     deleteAnime,
     createAnimeUpdate,
-    refetch: fetchAnimeData
+    refetch: fetchAnimeData,
   };
 }
